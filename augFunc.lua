@@ -57,7 +57,63 @@ local function genUtilsTable(func)
         res[key] = aft.f(value)
       end
       return res
-    end
+    end,
+
+    -- aft:first(nextable)
+    first = function(aft, tableLike)
+      for _,value in pairs(tableLike) do
+        local testVal = aft.f(value)
+        if testVal then
+          return testVal
+        end
+      end
+      return nil
+    end,
+
+    -- aft:bindRes(fn)
+    bindRes = function(aft,fn)
+      return augFunction(function(...)
+        local res = {}
+        for key,value in pairs(fn(...)) do
+          res[key] = aft.f(value)
+        end
+        return res
+      end)
+    end,
+
+    -- aft:filter(tableLike)
+    filter = function(aft, tableLike)
+      res = {}
+      for key,value in pairs(tableLike) do
+        if aft.f(value) ~= nil then
+          res[key] = value
+        end
+      end
+      return res
+    end,
+
+    -- aft:sequenceAnd(fn)
+    sequenceAnd = function(aft,fn)
+      return augFunction(function(...)
+        if(aft.f(...) ~= nil) then
+          return fn(...)
+        else
+          return nil
+        end
+      end)
+    end,
+
+    -- aft:sequenceOr(fn)
+    sequenceOr = function(aft, fn)
+      return augFunction(function(...)
+        local maybe = aft.f(...)
+        if maybe == nil then
+          return fn(...)
+        else
+          return maybe
+        end
+      end)
+    end,
   }
 end
 
@@ -73,62 +129,25 @@ local function genMetaTable(aft)
     __mul = aft.map,
 
     --f << foo -- return first element of foo for which f' does not return nil
-    __shl = function(aft, nextable)
-      for _,value in pairs(nextable) do
-        local testVal = aft.f(value)
-        if testVal then
-          return testVal
-        end
-      end
-      return nil
-    end,
+    __shl = aft.first,
 
     --f ^ g -- return an augmented function that maps f' over the results of g
-    __pow = function(aft, fn)
-      return augFunction(function(...)
-        res = {}
-        for key,value in pairs(fn(...)) do
-          res[key] = aft.f(value)
-        end
-        return res
-      end)
-    end,
+    __pow = aft.bindRes,
 
     -- f ~ foo -- filter elements of foo where f'(ele) ~= nil
-    __bnot = function(aft, nextable)
-      res = {}
-      for key,value in pairs(nextable) do
-        if aft.f(value) ~= nil then
-          res[key] = value
-        end
-      end
-      return res
-    end,
+    __bnot = aft.filter,
 
     -- f & g -- returns an augmented fn that calls f, & if f doesn't return nil
     --       --  it returns the result of g on the same arguments
-    __band = function(aft, fn)
-      return augFunction(function(...)
-        if(aft.f(...) ~= nil) then
-          return fn(...)
-        else
-          return nil -- this was implied but I felt better adding it explicitly
-        end
-      end)
-    end,
+    __band = aft.sequenceAnd,
 
     -- f | g -- returns an augmented fn that that executes f, & if f returns nil
     --       --  it returns the result of g on the same arguments
-    __bor = function(aft, fn)
-      return augFunction(function(...)
-        local maybe = aft.f(...)
-        if maybe == nil then
-          return fn(...)
-        else
-          return maybe
-        end
-      end)
-    end,
+    __bor = aft.sequenceOr,
+
+    __tostring = function()
+      return ("Augmented (%s)"):format(tostring(aft.f))
+    end
   }
 end
 
