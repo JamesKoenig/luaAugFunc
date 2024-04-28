@@ -54,9 +54,16 @@ local function genUtilsTable(func)
     map = function(aft,tableLike)
       res = {}
       for key, value in pairs(tableLike) do
-        res[key] = aft.f(value)
+        res[key] = aft.f(value,key)
       end
       return res
+    end,
+
+    -- aft:ontoEach(nextable)
+    ontoEach = function(aft,tableLike)
+      for key,value in pairs(tableLike) do
+        aft.f(value,key)
+      end
     end,
 
     -- aft:first(nextable)
